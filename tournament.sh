@@ -11,7 +11,7 @@ declare -A draws
 declare -A losses
 declare -A points
 
-add_team_if_needed () {
+add_team_if_needed() {
   local team=$1
   # matches_played is our cannonical set of keys
   if [ ! ${matches_played["$team"]+_} ]; then
@@ -23,26 +23,17 @@ add_team_if_needed () {
   fi
 }
 
-print_table () {
-  printf "%-31s| MP |  W |  D |  L |  P \n" "Team"
+print_table() {
+  printf "%-31s| MP |  W |  D |  L |  P\n" "Team"
 
-  raw_str=$(for key in "${!wins[@]}"
-  do
-      printf "%s - %s\n" "$key" "${wins["$key"]}"
+  mapfile -t teams_sorted < <(for key in "${!matches_played[@]}"; do
+    printf "%s, %s\n" "$key" "${wins["$key"]}"
   done |
-  sort -n -k3 )
-  # | sed "s/-.*/\n/g")
-
-  echo $raw_str
-
-  IFS=$'\n' read -r -a teams_sorted <<< "$raw_str"
-
-  echo ${teams_sorted[0]}
-  echo ${teams_sorted[1]}
+    sort -n -k2 -r -t, |
+    awk 'BEGIN {FS = "," } ; {print $1}')
 
   for team in "${teams_sorted[@]}"; do
-    # printf "%-31s|\n" "$team"
-    printf "%-31s|  %d |  %d |  %d |  %d |  %d \n" \
+    printf "%-31s|  %d |  %d |  %d |  %d |  %d\n" \
       "$team" \
       "${matches_played["$team"]}" \
       "${wins["$team"]}" \
@@ -50,14 +41,9 @@ print_table () {
       "${losses["$team"]}" \
       "${points["$team"]}"
   done
-
-
-
-  # for team in "${teams_sorted[@]}"; do
-  # done
 }
 
-process_match () {
+process_match() {
   first_team=$1
   second_team=$2
 
@@ -69,12 +55,12 @@ process_match () {
   if [[ $outcome =~ win* ]]; then
     ((wins["$first_team"]++))
     ((losses["$second_team"]++))
-    ((points["$first_team"]+=3))
-  elif [[ $outcome =~ loss* ]]; then 
+    ((points["$first_team"] += 3))
+  elif [[ $outcome =~ loss* ]]; then
     ((losses["$first_team"]++))
     ((wins["$second_team"]++))
-    ((points["$second_team"]+=3))
-  elif [[ $outcome =~ draw* ]]; then 
+    ((points["$second_team"] += 3))
+  elif [[ $outcome =~ draw* ]]; then
     ((draws["$first_team"]++))
     ((draws["$second_team"]++))
     ((points["$first_team"]++))
@@ -82,11 +68,10 @@ process_match () {
   fi
 }
 
-main () {
-  while IFS=\; read -t 0.1 -u 0 -r first_team second_team outcome
-  do
-    process_match "$first_team" "$second_team"
-  done
+main() {
+  while IFS=\; read -t 0.1 -u 0 -r first_team second_team outcome; do
+    [ -n "$first_team" ] && [ -n "$second_team" ] && process_match "$first_team" "$second_team"
+  done < <(echo "$1")
   print_table
 }
 
